@@ -970,7 +970,7 @@ function ChartPanel({ title, unit, color, children }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col min-h-[200px] shadow-xl"
+      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col min-h-[150px] shadow-xl"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-slate-300">{title}</h3>
