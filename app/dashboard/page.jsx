@@ -629,7 +629,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT SIDE - CHARTS */}
-        <div className="xl:col-span-10 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="xl:col-span-10 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-4 auto-rows-[180px]">
           <ChartPanel title="ROP" unit="ft/hr" color="#10b981">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -668,7 +668,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Torque" unit="klb-ft" color="#ef4444">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -707,7 +706,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Rotary Speed" unit="rpm" color="#f97316">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -746,7 +744,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Flow In" unit="gpm" color="#14b8a6">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -785,7 +782,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Flow Out" unit="%" color="#06b6d4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -824,7 +820,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="SPP" unit="psi" color="#0ea5e9">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -863,7 +858,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Weight on Bit" unit="klbs" color="#a855f7">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -902,7 +896,6 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartPanel>
-
           <ChartPanel title="Hookload" unit="klbs" color="#6366f1">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -970,7 +963,7 @@ function ChartPanel({ title, unit, color, children }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col min-h-[150px] shadow-xl"
+      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col min-h-[200px] shadow-xl"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-slate-300">{title}</h3>
