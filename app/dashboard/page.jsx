@@ -1,8 +1,8 @@
 // app/dashboard/page.jsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LineChart,
   Line,
@@ -11,45 +11,74 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
-} from 'recharts';
+  Legend,
+} from "recharts";
 
 import {
-  Activity,
-  Gauge,
-  Layers,
-  Zap,
-  TrendingUp,
-  Database,
   RefreshCw,
-  Droplet,
-  Thermometer
-} from 'lucide-react';
-
-import { format } from 'date-fns';
+  Database,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Settings,
+  X,
+  TrendingUp,
+  Layers,
+  Activity,
+  Filter,
+} from "lucide-react";
 
 export default function DashboardPage() {
   const [data, setData] = useState([]);
   const [stats, setStats] = useState(null);
+  const [dateRange, setDateRange] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [dataLimit, setDataLimit] = useState(500);
+  const [customLimit, setCustomLimit] = useState("500");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1000);
 
-  const fetchData = async () => {
+  const fetchData = async (
+    limit = dataLimit,
+    sDate = "",
+    sTime = "",
+    eDate = "",
+    eTime = ""
+  ) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/drilling-data?limit=500');
+      let url = `/api/drilling-data?limit=${limit}`;
+
+      if (sDate && eDate) {
+        url += `&startDate=${sDate}&endDate=${eDate}`;
+        if (sTime && eTime) {
+          url += `&startTime=${normalizeTime(sTime)}&endTime=${normalizeTime(
+            eTime
+          )}`;
+        }
+      }
+      const res = await fetch(url);
       const result = await res.json();
 
       if (result.success) {
         setData(result.data);
         setStats(result.stats);
+        setDateRange(result.dateRange);
         setError(null);
+        setCurrentIndex(0);
       } else {
-        setError('Failed to load data');
+        setError(result.message || "Failed to load data");
       }
     } catch (e) {
-      setError('Network error');
+      setError("Network error");
     } finally {
       setLoading(false);
     }
@@ -59,458 +88,1096 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
+  const normalizeTime = (t) => {
+    if (!t) return "";
+    return t.length === 5 ? `${t}:00` : t; // HH:MM ---> HH:MM:SS
+  };
+
   // Auto-play simulation
   useEffect(() => {
-    if (data.length === 0) return;
+    if (!isPlaying || data.length === 0) return;
+
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % data.length);
-    }, 2000);
+      setCurrentIndex((prev) => {
+        if (prev >= data.length - 1) {
+          setIsPlaying(false);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, playbackSpeed);
+
     return () => clearInterval(interval);
-  }, [data.length]);
+  }, [isPlaying, data.length, playbackSpeed]);
 
   const currentData = data[currentIndex] || {};
-  const displayData = data.slice(Math.max(0, currentIndex - 200), currentIndex + 1);
+  const displayData = data.slice(
+    Math.max(0, currentIndex - 200),
+    currentIndex + 1
+  );
+
+  // Control handlers
+  const handlePlayPause = () => {
+    if (currentIndex >= data.length - 1) {
+      setCurrentIndex(0);
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleReset = () => {
+    setCurrentIndex(0);
+    setIsPlaying(false);
+  };
+
+  const handleSkipForward = () => {
+    setCurrentIndex((prev) => Math.min(prev + 10, data.length - 1));
+  };
+
+  const handleSkipBack = () => {
+    setCurrentIndex((prev) => Math.max(prev - 10, 0));
+  };
+
+  const handleLimitChange = () => {
+    const newLimit = parseInt(customLimit);
+    if (newLimit >= 100 && newLimit <= 10000) {
+      setDataLimit(newLimit);
+      fetchData(newLimit, startDate, startTime, endDate, endTime);
+    } else {
+      alert("Please enter a limit between 100 and 10000");
+    }
+  };
+
+  const handleDateFilter = () => {
+    if (startDate && endDate) {
+      fetchData(dataLimit, startDate, startTime, endDate, endTime);
+      setShowFilters(false);
+    } else {
+      alert("Please select both start and end dates");
+    }
+  };
+
+  const handleClearFilters = () => {
+    setStartDate("");
+    setStartTime("");
+    setEndDate("");
+    setEndTime("");
+    fetchData(dataLimit, "", "", "", "");
+  };
+
+  // Determine drilling status
+  const isDrilling = () => {
+    const rop = parseFloat(currentData.rop) || 0;
+    const holeDepth = parseFloat(currentData.hole_depth) || 0;
+    const bitDepth = parseFloat(currentData.bit_depth) || 0;
+    return rop > 0 && Math.abs(holeDepth - bitDepth) <= 5;
+  };
+
+  // Helper to safely parse float values
+  const safeParseFloat = (value, decimals = 2) => {
+    const num = parseFloat(value);
+    return !isNaN(num) ? num.toFixed(decimals) : "--";
+  };
 
   /* ---------------------- LOADING SCREEN ---------------------- */
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-        <div className="text-center">
-          <RefreshCw className="w-16 h-16 text-cyan-400 animate-spin mx-auto mb-4" />
-          <p className="text-xl text-slate-300">Loading drilling data...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-6"></div>
+            <Activity className="w-8 h-8 text-cyan-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <p className="text-xl text-slate-300 font-light">
+            Loading drilling data...
+          </p>
+          <p className="text-sm text-slate-500 mt-2">
+            Initializing real-time simulation
+          </p>
+        </motion.div>
       </div>
     );
   }
 
-  /* ---------------------- ERROR SCREEN ---------------------- */
-  if (error || data.length === 0) {
+  /* ---------------------- NO DATA SCREEN ---------------------- */
+  if (data.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-        <div className="text-center">
-          <Database className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <p className="text-xl text-slate-300 mb-4">{error || 'No data available.'}</p>
-          <a href="/upload" className="text-cyan-400 hover:text-cyan-300 font-semibold">
-            Upload CSV →
-          </a>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center max-w-md"
+        >
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
+            <Database className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+            <h2 className="text-2xl text-slate-200 mb-3 font-light">
+              Data not exist
+            </h2>
+            <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+              {error ||
+                "The database is empty or no records match your filters. Please check your filter settings or upload CSV data."}
+            </p>
+            {(startDate || endDate || startTime || endTime) && (
+              <button
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/20"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 overflow-hidden">
-      
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 sm:p-4 lg:p-6">
       {/* HEADER */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
         className="mb-4"
       >
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            DEMO - Drilling Surface Parameters
-          </h1>
-          <button
-            onClick={fetchData}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 rounded-lg text-cyan-300 font-semibold transition-all text-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-light bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                  FORGE 56-32
+                </h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-400">
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  Real-Time Simulation
+                </span>
+                <span>|</span>
+                <span>Utah Formation</span>
+                {stats && (
+                  <>
+                    <span>|</span>
+                    <span>
+                      {parseInt(stats.total_records).toLocaleString()} Records
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 rounded-xl text-slate-300 font-medium transition-all text-xs sm:text-sm"
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filters</span>
+              </button>
+
+              <button
+                onClick={() =>
+                  fetchData(dataLimit, startDate, startTime, endDate, endTime)
+                }
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-cyan-300 font-medium transition-all text-xs sm:text-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
+          </div>
         </div>
       </motion.div>
 
-      {/* MAIN LAYOUT - Left Metrics + Right Charts */}
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
-        
+      {/* FILTERS PANEL */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4 overflow-hidden"
+          >
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-light text-slate-300 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-cyan-400" />
+                  Filter Options
+                </h3>
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="p-1 hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">
+                    Data Limit
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={customLimit}
+                      onChange={(e) => setCustomLimit(e.target.value)}
+                      className="flex-1 bg-slate-800/50 text-white text-sm px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                      placeholder="500"
+                      min="100"
+                      max="10000"
+                    />
+                    <button
+                      onClick={handleLimitChange}
+                      className="px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 rounded-xl text-cyan-300 text-sm font-medium transition-all"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-slate-800/50 text-white text-sm px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    step="1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="w-full bg-slate-800/50 text-white text-sm px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-2">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    step="1"
+                    className="w-full bg-slate-800/50 text-white text-sm px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  />
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={handleDateFilter}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/20"
+                  >
+                    Apply Filter
+                  </button>
+                  <button
+                    onClick={handleClearFilters}
+                    className="px-4 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 text-slate-300 text-sm font-medium rounded-xl transition-all"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {dateRange && (
+                <div className="mt-3 text-xs text-slate-500">
+                  <p>
+                    Available date range: {dateRange.min_date_html} →{" "}
+                    {dateRange.max_date_html}
+                  </p>
+                  {startDate && endDate && (
+                    <p className="mt-1 text-cyan-400">
+                      Filtering: {startDate} {startTime || "00:00:00"} →{" "}
+                      {endDate} {endTime || "23:59:59"}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* PLAYBACK CONTROLS */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="mb-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-xl"
+      >
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleReset}
+              className="p-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-slate-300 transition-all"
+              title="Reset"
+            >
+              <SkipBack className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleSkipBack}
+              className="p-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-slate-300 transition-all"
+              title="Back 10s"
+            >
+              <SkipBack className="w-3 h-3" />
+            </button>
+
+            <button
+              onClick={handlePlayPause}
+              className={`p-3 rounded-xl font-semibold transition-all shadow-lg ${
+                isPlaying
+                  ? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 shadow-red-500/20"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/20"
+              } text-white`}
+            >
+              {isPlaying ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5" />
+              )}
+            </button>
+
+            <button
+              onClick={handleSkipForward}
+              className="p-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-slate-300 transition-all"
+              title="Forward 10s"
+            >
+              <SkipForward className="w-3 h-3" />
+            </button>
+
+            <div className="px-3 py-2 bg-slate-800/30 rounded-xl border border-slate-700/50">
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(parseInt(e.target.value))}
+                className="bg-transparent text-slate-300 text-xs focus:outline-none"
+              >
+                <option value="2000">0.5x</option>
+                <option value="1000">1x</option>
+                <option value="500">2x</option>
+                <option value="250">4x</option>
+              </select>
+            </div>
+
+            <div
+              className={`px-3 py-2 rounded-xl font-medium text-xs sm:text-sm ${
+                isDrilling()
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50"
+                  : "bg-rose-500/20 text-rose-300 border border-rose-500/50"
+              }`}
+            >
+              {isDrilling() ? "● Drilling" : "○ Off-Bottom"}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="text-right">
+              <div className="text-cyan-400 font-mono text-xs sm:text-sm font-medium">
+                {currentData.date_ymd} {currentData.time_hms}
+              </div>
+              <div className="text-slate-500 text-xs">
+                {currentIndex + 1} / {data.length}
+              </div>
+            </div>
+            <div className="flex-1 sm:w-48 bg-slate-800/50 rounded-full h-2 overflow-hidden">
+              <motion.div
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full"
+                animate={{
+                  width: `${((currentIndex + 1) / data.length) * 100}%`,
+                }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* MAIN GRID LAYOUT */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* LEFT SIDEBAR - METRICS */}
-        <div className="col-span-12 lg:col-span-3 space-y-3 overflow-y-auto">
-          
-          {/* Depth Metrics */}
-          <MetricBox 
-            title="Bit Depth" 
-            value={currentData.md_dmea} 
-            unit="m" 
-            color="bg-gradient-to-br from-blue-600 to-blue-800"
+        <div className="xl:col-span-3 space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto custom-scrollbar">
+          <MetricBox
+            title="Hole Depth"
+            value={currentData.hole_depth}
+            unit="ft"
+            color="from-blue-600 to-blue-800"
+            icon="📏"
           />
-          
-          <MetricBox 
-            title="Hole Depth" 
-            value={currentData.md_dver} 
-            unit="m" 
-            color="bg-gradient-to-br from-blue-600 to-blue-800"
+          <MetricBox
+            title="Bit Depth"
+            value={currentData.bit_depth}
+            unit="ft"
+            color="from-blue-600 to-blue-800"
+            icon="🔧"
           />
-
-          {/* Hook Load & Block Position */}
-          <MetricBox 
-            title="Hook Load" 
-            value={currentData.md_hkld} 
-            unit="kN" 
-            color="bg-gradient-to-br from-indigo-600 to-indigo-800"
+          <MetricBox
+            title="ROP"
+            value={currentData.rop}
+            unit="ft/hr"
+            color="from-emerald-600 to-emerald-800"
+            icon="⚡"
           />
-          
-          <MetricBox 
-            title="Block Position" 
-            value={currentData.md_bpos} 
-            unit="m" 
-            color="bg-gradient-to-br from-indigo-600 to-indigo-800"
+          <MetricBox
+            title="WOB"
+            value={currentData.wob}
+            unit="klbs"
+            color="from-purple-600 to-purple-800"
+            icon="⚖️"
           />
-
-          {/* Weight & ROP */}
-          <MetricBox 
-            title="Weight On Bit" 
-            value={currentData.md_swob} 
-            unit="kdaN" 
-            color="bg-gradient-to-br from-purple-600 to-purple-800"
+          <MetricBox
+            title="Hookload"
+            value={currentData.hookload}
+            unit="klbs"
+            color="from-indigo-600 to-indigo-800"
+            icon="🪝"
           />
-          
-          <MetricBox 
-            title="ROP" 
-            value={currentData.md_rop} 
-            unit="m/hr" 
-            color="bg-gradient-to-br from-green-600 to-green-800"
+          <MetricBox
+            title="Rotary Speed"
+            value={currentData.rotary_speed}
+            unit="rpm"
+            color="from-orange-600 to-orange-800"
+            icon="🔄"
           />
-
-          {/* Rotary & Torque */}
-          <MetricBox 
-            title="Rotary Speed" 
-            value={currentData.md_tdrpm} 
-            unit="rpm" 
-            color="bg-gradient-to-br from-orange-600 to-orange-800"
+          <MetricBox
+            title="SPP"
+            value={currentData.spp}
+            unit="psi"
+            color="from-cyan-600 to-cyan-800"
+            icon="💨"
           />
-          
-          <MetricBox 
-            title="Torque" 
-            value={currentData.md_tdtqa} 
-            unit="N·m" 
-            color="bg-gradient-to-br from-red-600 to-red-800"
+          <MetricBox
+            title="Torque"
+            value={currentData.torque}
+            unit="klb-ft"
+            color="from-red-600 to-red-800"
+            icon="🔥"
           />
-
-          {/* Mud Flow */}
-          <MetricBox 
-            title="Mud Flow In" 
-            value={currentData.md_mfia} 
-            unit="L/min" 
-            color="bg-gradient-to-br from-teal-600 to-teal-800"
+          <MetricBox
+            title="Flow In"
+            value={currentData.flow_in}
+            unit="gpm"
+            color="from-teal-600 to-teal-800"
+            icon="💧"
           />
-          
-          <MetricBox 
-            title="Pump Pressure" 
-            value={currentData.md_sppa} 
-            unit="bar" 
-            color="bg-gradient-to-br from-cyan-600 to-cyan-800"
+          <MetricBox
+            title="Flow Out"
+            value={currentData.flow_out}
+            unit="%"
+            color="from-teal-600 to-teal-800"
+            icon="🌊"
           />
-
-          {/* Strokes */}
-          <MetricBox 
-            title="Stroke 1" 
-            value={currentData.md_spm1} 
-            unit="spm" 
-            color="bg-gradient-to-br from-slate-600 to-slate-800"
+          <MetricBox
+            title="Mud Volume"
+            value={currentData.mud_volume}
+            unit="bbl"
+            color="from-amber-600 to-amber-800"
+            icon="🛢️"
           />
-          
-          <MetricBox 
-            title="Stroke 2" 
-            value={currentData.md_spm2} 
-            unit="spm" 
-            color="bg-gradient-to-br from-slate-600 to-slate-800"
+          <MetricBox
+            title="Block Height"
+            value={currentData.block_height}
+            unit="ft"
+            color="from-slate-600 to-slate-800"
+            icon="📐"
           />
-
-          {/* Mud Flow Out */}
-          <MetricBox 
-            title="Mud Flow Out" 
-            value={currentData.md_mfoa} 
-            unit="L/min" 
-            color="bg-gradient-to-br from-teal-600 to-teal-800"
+          <MetricBox
+            title="Pump 1 SPM"
+            value={currentData.pump1_spm}
+            unit="spm"
+            color="from-slate-600 to-slate-800"
+            icon="⚙️"
           />
-
+          <MetricBox
+            title="Pump 1 Rate"
+            value={currentData.pump1_rate}
+            unit="gpm"
+            color="from-slate-600 to-slate-800"
+            icon="💦"
+          />
+          <MetricBox
+            title="Pump 2 SPM"
+            value={currentData.pump2_spm}
+            unit="spm"
+            color="from-slate-600 to-slate-800"
+            icon="⚙️"
+          />
+          <MetricBox
+            title="Pump 2 Rate"
+            value={currentData.pump2_rate}
+            unit="gpm"
+            color="from-slate-600 to-slate-800"
+            icon="💦"
+          />
         </div>
 
-        {/* RIGHT SIDE - CONTINUOUS CHARTS */}
-        <div className="col-span-12 lg:col-span-9 bg-slate-800/30 backdrop-blur border border-cyan-500/20 rounded-xl p-4 overflow-hidden">
-          
-          <div className="h-full flex flex-col gap-4">
-            
-            {/* Top Row - 3 Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-1/3">
-              
-              {/* Hole Depth */}
-              <ChartPanel title="Hole Depth" unit="m" color="#3b82f6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #3b82f6',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_dmea" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2} 
-                      dot={false} 
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
-
-              {/* Torque */}
-              <ChartPanel title="Torque" unit="N·m" color="#ef4444">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #ef4444',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_tdtqa" 
-                      stroke="#ef4444" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
-
-              {/* Mud Flow In */}
-              <ChartPanel title="Mud Flow In" unit="L/min" color="#14b8a6">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #14b8a6',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_mfia" 
-                      stroke="#14b8a6" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
+        {/* RIGHT SIDE - CHARTS */}
+        <div className="xl:col-span-9 space-y-4">
+          {/* MULTI-SERIES CHART */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-light text-slate-300 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-cyan-400" />
+                Multi-Parameter Analysis
+              </h3>
             </div>
-
-            {/* Middle Row - 2 Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-1/3">
-              
-              {/* Rotary Speed */}
-              <ChartPanel title="Rotary Speed" unit="rpm" color="#f97316">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #f97316',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_tdrpm" 
-                      stroke="#f97316" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
-
-              {/* ROP */}
-              <ChartPanel title="Rate of Penetration" unit="m/hr" color="#10b981">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #10b981',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_rop" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
+            <div className="h-64 sm:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    stroke="#3b82f6"
+                    tick={{ fontSize: 10 }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#10b981"
+                    tick={{ fontSize: 10 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #334155",
+                      borderRadius: 12,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} iconType="line" />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="hole_depth"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Hole Depth (ft)"
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="bit_depth"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Bit Depth (ft)"
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="rop"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    name="ROP (ft/hr)"
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="wob"
+                    stroke="#a855f7"
+                    strokeWidth={1.5}
+                    dot={false}
+                    name="WOB (klbs)"
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
+          </motion.div>
 
-            {/* Bottom Row - 2 Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-1/3">
-              
-              {/* Weight on Bit */}
-              <ChartPanel title="Weight on Bit" unit="kdaN" color="#a855f7">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #a855f7',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_swob" 
-                      stroke="#a855f7" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
+          {/* DEPTH CHARTS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ChartPanel title="Hole Depth" unit="ft" color="#3b82f6" icon="📏">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #3b82f6",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="hole_depth"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
 
-              {/* Standpipe Pressure */}
-              <ChartPanel title="Standpipe Pressure" unit="bar" color="#06b6d4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(v) => format(new Date(v), 'HH:mm')} 
-                    />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #06b6d4',
-                        borderRadius: 8,
-                        fontSize: 12
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="md_sppa" 
-                      stroke="#06b6d4" 
-                      strokeWidth={2} 
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartPanel>
-            </div>
+            <ChartPanel title="Bit Depth" unit="ft" color="#06b6d4" icon="🔧">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #06b6d4",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="bit_depth"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+          </div>
 
+          {/* ROP & MECHANICAL */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ChartPanel title="ROP" unit="ft/hr" color="#10b981" icon="⚡">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 1500]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #10b981",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="rop"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+
+            <ChartPanel title="Torque" unit="klb-ft" color="#ef4444" icon="🔥">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 150]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #ef4444",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="torque"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+
+            <ChartPanel
+              title="Rotary Speed"
+              unit="rpm"
+              color="#f97316"
+              icon="🔄"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 200]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #f97316",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="rotary_speed"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+          </div>
+
+          {/* FLOW & PRESSURE */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ChartPanel title="Flow In" unit="gpm" color="#14b8a6" icon="💧">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 1200]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #14b8a6",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="flow_in"
+                    stroke="#14b8a6"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+
+            <ChartPanel title="Flow Out" unit="%" color="#06b6d4" icon="🌊">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 150]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #06b6d4",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="flow_out"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+
+            <ChartPanel title="SPP" unit="psi" color="#0ea5e9" icon="💨">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 5500]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #0ea5e9",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="spp"
+                    stroke="#0ea5e9"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+          </div>
+
+          {/* WOB & HOOKLOAD */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ChartPanel
+              title="Weight on Bit"
+              unit="klbs"
+              color="#a855f7"
+              icon="⚖️"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 300]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #a855f7",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="wob"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+
+            <ChartPanel title="Hookload" unit="klbs" color="#6366f1" icon="🪝">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={displayData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#334155"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time_hms"
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    tickFormatter={(v) => v.substring(0, 5)}
+                  />
+                  <YAxis
+                    stroke="#94a3b8"
+                    tick={{ fontSize: 9 }}
+                    domain={[0, 350]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      border: "1px solid #6366f1",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="hookload"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartPanel>
           </div>
         </div>
       </div>
-
-      {/* Time Indicator */}
-      {currentData.date && (
-        <div className="mt-4 text-center">
-          <span className="text-cyan-400 font-mono text-sm">
-            Current Time: {format(new Date(currentData.date), 'yyyy-MM-dd HH:mm:ss')}
-          </span>
-          <span className="text-slate-500 ml-4">
-            ({currentIndex + 1} / {data.length})
-          </span>
-        </div>
-      )}
     </div>
   );
 }
 
 // Metric Box Component
-function MetricBox({ title, value, unit, color }) {
+function MetricBox({ title, value, unit, color, icon }) {
+  const numValue = parseFloat(value);
   return (
-    <div className={`${color} rounded-lg p-4 shadow-lg border border-white/10`}>
-      <div className="text-white/70 text-xs font-semibold mb-1">{title}</div>
-      <div className="text-white text-2xl font-bold">
-        {value !== null && value !== undefined ? Number(value).toFixed(2) : '--'}
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className={`bg-gradient-to-br ${color} rounded-xl p-4 shadow-xl border border-white/10 backdrop-blur-sm`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-white/70 text-xs font-medium">{title}</div>
+        <span className="text-xl opacity-60">{icon}</span>
       </div>
-      <div className="text-white/60 text-xs mt-1">{unit}</div>
-    </div>
+      <div className="text-white text-2xl lg:text-3xl font-bold mb-1">
+        {!isNaN(numValue) ? numValue.toFixed(2) : "--"}
+      </div>
+      <div className="text-white/60 text-xs font-medium">{unit}</div>
+    </motion.div>
   );
 }
 
 // Chart Panel Component
-function ChartPanel({ title, unit, color, children }) {
+function ChartPanel({ title, unit, color, icon, children }) {
   return (
-    <div className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-3 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-slate-300">{title}</h3>
-        <span className="text-xs text-slate-500">{unit}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col h-72 shadow-xl"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <span className="text-base">{icon}</span>
+          {title}
+        </h3>
+        <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-lg">
+          {unit}
+        </span>
       </div>
-      <div className="flex-1">
-        {children}
-      </div>
-    </div>
+      <div className="flex-1">{children}</div>
+    </motion.div>
   );
 }
