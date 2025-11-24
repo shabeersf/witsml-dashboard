@@ -111,7 +111,7 @@ export default function DashboardPage() {
   }, [isPlaying, data.length, playbackSpeed]);
 
   const currentData = data[currentIndex] || {};
-  
+
   // Show last 60 seconds of data for better visibility
   const displayData = data.slice(
     Math.max(0, currentIndex - 60),
@@ -529,7 +529,7 @@ export default function DashboardPage() {
       {/* MAIN GRID LAYOUT */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* LEFT SIDEBAR - METRICS */}
-        <div className="xl:col-span-3 space-y-3">
+        <div className="xl:col-span-2 space-y-3">
           <MetricBox
             title="Hole Depth"
             value={currentData.hole_depth}
@@ -629,7 +629,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT SIDE - CHARTS */}
-        <div className="xl:col-span-9 space-y-4">
+        <div className="xl:col-span-10 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-4">
           <ChartPanel title="ROP" unit="ft/hr" color="#10b981">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -970,7 +970,7 @@ function ChartPanel({ title, unit, color, children }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col h-72 shadow-xl"
+      className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col min-h-[200px] shadow-xl"
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-slate-300">{title}</h3>
