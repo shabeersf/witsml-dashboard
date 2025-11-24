@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import {
   LineChart,
   Line,
@@ -11,7 +12,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 import {
@@ -23,10 +23,10 @@ import {
   SkipForward,
   Settings,
   X,
-  TrendingUp,
   Layers,
   Activity,
   Filter,
+  Upload,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -90,7 +90,7 @@ export default function DashboardPage() {
 
   const normalizeTime = (t) => {
     if (!t) return "";
-    return t.length === 5 ? `${t}:00` : t; // HH:MM ---> HH:MM:SS
+    return t.length === 5 ? `${t}:00` : t;
   };
 
   // Auto-play simulation
@@ -111,8 +111,10 @@ export default function DashboardPage() {
   }, [isPlaying, data.length, playbackSpeed]);
 
   const currentData = data[currentIndex] || {};
+  
+  // Show last 60 seconds of data for better visibility
   const displayData = data.slice(
-    Math.max(0, currentIndex - 200),
+    Math.max(0, currentIndex - 60),
     currentIndex + 1
   );
 
@@ -172,12 +174,6 @@ export default function DashboardPage() {
     return rop > 0 && Math.abs(holeDepth - bitDepth) <= 5;
   };
 
-  // Helper to safely parse float values
-  const safeParseFloat = (value, decimals = 2) => {
-    const num = parseFloat(value);
-    return !isNaN(num) ? num.toFixed(decimals) : "--";
-  };
-
   /* ---------------------- LOADING SCREEN ---------------------- */
   if (loading) {
     return (
@@ -220,15 +216,24 @@ export default function DashboardPage() {
               {error ||
                 "The database is empty or no records match your filters. Please check your filter settings or upload CSV data."}
             </p>
-            {(startDate || endDate || startTime || endTime) && (
-              <button
-                onClick={handleClearFilters}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/20"
+            <div className="flex flex-col gap-3">
+              {(startDate || endDate || startTime || endTime) && (
+                <button
+                  onClick={handleClearFilters}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/20"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Clear Filters
+                </button>
+              )}
+              <Link
+                href="/upload"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-emerald-500/20"
               >
-                <RefreshCw className="w-4 h-4" />
-                Clear Filters
-              </button>
-            )}
+                <Upload className="w-4 h-4" />
+                Upload CSV File
+              </Link>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -363,6 +368,7 @@ export default function DashboardPage() {
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
                     step="1"
+                    className="w-full bg-slate-800/50 text-white text-sm px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-cyan-500/50 transition-colors"
                   />
                 </div>
 
@@ -523,635 +529,433 @@ export default function DashboardPage() {
       {/* MAIN GRID LAYOUT */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* LEFT SIDEBAR - METRICS */}
-        <div className="xl:col-span-3 space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto custom-scrollbar">
+        <div className="xl:col-span-3 space-y-3">
           <MetricBox
             title="Hole Depth"
             value={currentData.hole_depth}
             unit="ft"
             color="from-blue-600 to-blue-800"
-            icon="📏"
           />
           <MetricBox
             title="Bit Depth"
             value={currentData.bit_depth}
             unit="ft"
             color="from-blue-600 to-blue-800"
-            icon="🔧"
           />
           <MetricBox
             title="ROP"
             value={currentData.rop}
             unit="ft/hr"
             color="from-emerald-600 to-emerald-800"
-            icon="⚡"
           />
           <MetricBox
             title="WOB"
             value={currentData.wob}
             unit="klbs"
             color="from-purple-600 to-purple-800"
-            icon="⚖️"
           />
           <MetricBox
             title="Hookload"
             value={currentData.hookload}
             unit="klbs"
             color="from-indigo-600 to-indigo-800"
-            icon="🪝"
           />
           <MetricBox
             title="Rotary Speed"
             value={currentData.rotary_speed}
             unit="rpm"
             color="from-orange-600 to-orange-800"
-            icon="🔄"
           />
           <MetricBox
             title="SPP"
             value={currentData.spp}
             unit="psi"
             color="from-cyan-600 to-cyan-800"
-            icon="💨"
           />
           <MetricBox
             title="Torque"
             value={currentData.torque}
             unit="klb-ft"
             color="from-red-600 to-red-800"
-            icon="🔥"
           />
           <MetricBox
             title="Flow In"
             value={currentData.flow_in}
             unit="gpm"
             color="from-teal-600 to-teal-800"
-            icon="💧"
           />
           <MetricBox
             title="Flow Out"
             value={currentData.flow_out}
             unit="%"
             color="from-teal-600 to-teal-800"
-            icon="🌊"
           />
           <MetricBox
             title="Mud Volume"
             value={currentData.mud_volume}
             unit="bbl"
             color="from-amber-600 to-amber-800"
-            icon="🛢️"
           />
           <MetricBox
             title="Block Height"
             value={currentData.block_height}
             unit="ft"
             color="from-slate-600 to-slate-800"
-            icon="📐"
           />
           <MetricBox
             title="Pump 1 SPM"
             value={currentData.pump1_spm}
             unit="spm"
             color="from-slate-600 to-slate-800"
-            icon="⚙️"
           />
           <MetricBox
             title="Pump 1 Rate"
             value={currentData.pump1_rate}
             unit="gpm"
             color="from-slate-600 to-slate-800"
-            icon="💦"
           />
           <MetricBox
             title="Pump 2 SPM"
             value={currentData.pump2_spm}
             unit="spm"
             color="from-slate-600 to-slate-800"
-            icon="⚙️"
           />
           <MetricBox
             title="Pump 2 Rate"
             value={currentData.pump2_rate}
             unit="gpm"
             color="from-slate-600 to-slate-800"
-            icon="💦"
           />
         </div>
 
         {/* RIGHT SIDE - CHARTS */}
         <div className="xl:col-span-9 space-y-4">
-          {/* MULTI-SERIES CHART */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-light text-slate-300 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-cyan-400" />
-                Multi-Parameter Analysis
-              </h3>
-            </div>
-            <div className="h-64 sm:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    stroke="#3b82f6"
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#10b981"
-                    tick={{ fontSize: 10 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #334155",
-                      borderRadius: 12,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "11px" }} iconType="line" />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="hole_depth"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Hole Depth (ft)"
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="bit_depth"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Bit Depth (ft)"
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="rop"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                    name="ROP (ft/hr)"
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="wob"
-                    stroke="#a855f7"
-                    strokeWidth={1.5}
-                    dot={false}
-                    name="WOB (klbs)"
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
+          <ChartPanel title="ROP" unit="ft/hr" color="#10b981">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 1500]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #10b981",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rop"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-          {/* DEPTH CHARTS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ChartPanel title="Hole Depth" unit="ft" color="#3b82f6" icon="📏">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #3b82f6",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="hole_depth"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
+          <ChartPanel title="Torque" unit="klb-ft" color="#ef4444">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 150]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #ef4444",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="torque"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-            <ChartPanel title="Bit Depth" unit="ft" color="#06b6d4" icon="🔧">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #06b6d4",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="bit_depth"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </div>
+          <ChartPanel title="Rotary Speed" unit="rpm" color="#f97316">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 200]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #f97316",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rotary_speed"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-          {/* ROP & MECHANICAL */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ChartPanel title="ROP" unit="ft/hr" color="#10b981" icon="⚡">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 1500]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #10b981",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="rop"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
+          <ChartPanel title="Flow In" unit="gpm" color="#14b8a6">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 1200]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #14b8a6",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="flow_in"
+                  stroke="#14b8a6"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-            <ChartPanel title="Torque" unit="klb-ft" color="#ef4444" icon="🔥">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 150]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #ef4444",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="torque"
-                    stroke="#ef4444"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
+          <ChartPanel title="Flow Out" unit="%" color="#06b6d4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 150]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #06b6d4",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="flow_out"
+                  stroke="#06b6d4"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-            <ChartPanel
-              title="Rotary Speed"
-              unit="rpm"
-              color="#f97316"
-              icon="🔄"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 200]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #f97316",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="rotary_speed"
-                    stroke="#f97316"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </div>
+          <ChartPanel title="SPP" unit="psi" color="#0ea5e9">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 5500]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #0ea5e9",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="spp"
+                  stroke="#0ea5e9"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-          {/* FLOW & PRESSURE */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ChartPanel title="Flow In" unit="gpm" color="#14b8a6" icon="💧">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 1200]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #14b8a6",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="flow_in"
-                    stroke="#14b8a6"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
+          <ChartPanel title="Weight on Bit" unit="klbs" color="#a855f7">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 300]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #a855f7",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="wob"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
 
-            <ChartPanel title="Flow Out" unit="%" color="#06b6d4" icon="🌊">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 150]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #06b6d4",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="flow_out"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-
-            <ChartPanel title="SPP" unit="psi" color="#0ea5e9" icon="💨">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 5500]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #0ea5e9",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="spp"
-                    stroke="#0ea5e9"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </div>
-
-          {/* WOB & HOOKLOAD */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ChartPanel
-              title="Weight on Bit"
-              unit="klbs"
-              color="#a855f7"
-              icon="⚖️"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 300]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #a855f7",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="wob"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-
-            <ChartPanel title="Hookload" unit="klbs" color="#6366f1" icon="🪝">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={displayData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#334155"
-                    opacity={0.3}
-                  />
-                  <XAxis
-                    dataKey="time_hms"
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    tickFormatter={(v) => v.substring(0, 5)}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fontSize: 9 }}
-                    domain={[0, 350]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      border: "1px solid #6366f1",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="hookload"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </div>
+          <ChartPanel title="Hookload" unit="klbs" color="#6366f1">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#334155"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="time_hms"
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(v) => v.substring(0, 5)}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fontSize: 10 }}
+                  domain={[0, 350]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #6366f1",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="hookload"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartPanel>
         </div>
       </div>
     </div>
   );
 }
 
-// Metric Box Component
-function MetricBox({ title, value, unit, color, icon }) {
+// Metric Box Component (No emojis)
+function MetricBox({ title, value, unit, color }) {
   const numValue = parseFloat(value);
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       className={`bg-gradient-to-br ${color} rounded-xl p-4 shadow-xl border border-white/10 backdrop-blur-sm`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-white/70 text-xs font-medium">{title}</div>
-        <span className="text-xl opacity-60">{icon}</span>
-      </div>
+      <div className="text-white/70 text-xs font-medium mb-2">{title}</div>
       <div className="text-white text-2xl lg:text-3xl font-bold mb-1">
         {!isNaN(numValue) ? numValue.toFixed(2) : "--"}
       </div>
@@ -1160,8 +964,8 @@ function MetricBox({ title, value, unit, color, icon }) {
   );
 }
 
-// Chart Panel Component
-function ChartPanel({ title, unit, color, icon, children }) {
+// Chart Panel Component (No emojis)
+function ChartPanel({ title, unit, color, children }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1169,10 +973,7 @@ function ChartPanel({ title, unit, color, icon, children }) {
       className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 flex flex-col h-72 shadow-xl"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-          <span className="text-base">{icon}</span>
-          {title}
-        </h3>
+        <h3 className="text-sm font-medium text-slate-300">{title}</h3>
         <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-lg">
           {unit}
         </span>

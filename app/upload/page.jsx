@@ -1,276 +1,399 @@
 // app/upload/page.jsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Database, Info } from 'lucide-react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import React, { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Upload,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ArrowLeft,
+  Database,
+  AlertCircle,
+  X,
+} from "lucide-react";
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null); // 'success', 'error', null
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+  const router = useRouter();
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // Validate file type
-      if (!selectedFile.name.endsWith('.csv')) {
-        setError("Please upload a CSV file");
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
-      setResult(null);
-      setError(null);
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
   };
 
-  const uploadCSV = async () => {
-    if (!file) return;
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.name.endsWith(".csv")) {
+        setFile(droppedFile);
+        setUploadStatus(null);
+        setUploadMessage("");
+      } else {
+        setUploadStatus("error");
+        setUploadMessage("Please upload a CSV file only");
+      }
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      if (selectedFile.name.endsWith(".csv")) {
+        setFile(selectedFile);
+        setUploadStatus(null);
+        setUploadMessage("");
+      } else {
+        setUploadStatus("error");
+        setUploadMessage("Please upload a CSV file only");
+      }
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setUploadStatus("error");
+      setUploadMessage("Please select a file first");
+      return;
+    }
 
     setUploading(true);
-    setError(null);
-    setResult(null);
+    setUploadProgress(0);
+    setUploadStatus(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
-      const form = new FormData();
-      form.append("file", file);
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
 
-      const res = await fetch("/api/upload-csv", {
+      const response = await fetch("/api/upload-csv", {
         method: "POST",
-        body: form,
+        body: formData,
       });
 
-      const data = await res.json();
-      setUploading(false);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
-      if (data.success) {
-        setResult(data);
-        setError(null);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setUploadStatus("success");
+        setUploadMessage(
+          `Successfully uploaded ${result.recordsInserted} records!`
+        );
+
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
       } else {
-        setError(data.error || 'Upload failed');
-        setResult(null);
+        setUploadStatus("error");
+        setUploadMessage(result.error || "Upload failed. Please try again.");
       }
-    } catch (err) {
+    } catch (error) {
+      setUploadStatus("error");
+      setUploadMessage("Network error. Please check your connection.");
+    } finally {
       setUploading(false);
-      setError(`Upload failed: ${err.message}`);
-      setResult(null);
     }
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setUploadStatus(null);
+    setUploadMessage("");
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl -top-48 -left-48 animate-pulse" />
-        <div className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -bottom-48 -right-48 animate-pulse delay-1000" />
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-12">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 p-4 sm:p-6 lg:p-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-4xl mx-auto mb-8"
+      >
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-cyan-400 transition-colors mb-6"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Database className="w-12 h-12 text-cyan-400" />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Data Upload Center
-            </h1>
-          </div>
-          <p className="text-slate-300 text-lg">Import MARMUL drilling data from CSV files</p>
-        </motion.div>
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </Link>
 
-        {/* Upload Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="max-w-2xl mx-auto"
-        >
-          <div className="bg-slate-800/50 backdrop-blur-xl border border-cyan-500/30 rounded-2xl p-8 shadow-2xl">
-            {/* File Input Area */}
-            <div className="mb-8">
-              <label
-                htmlFor="file-upload"
-                className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-cyan-500/50 rounded-xl cursor-pointer hover:border-cyan-400 transition-all bg-slate-900/50 hover:bg-slate-900/70"
-              >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-16 h-16 text-cyan-400 mb-4" />
-                  <p className="mb-2 text-lg font-semibold text-slate-200">
-                    {file ? file.name : 'Click to upload CSV file'}
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    {file
-                      ? `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`
-                      : 'Supports files up to 50MB'}
-                  </p>
-                </div>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={uploading}
-                />
-              </label>
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-2xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Database className="w-6 h-6 text-white" />
             </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-light bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                Upload Drilling Data
+              </h1>
+              <p className="text-slate-400 text-sm mt-1">
+                Import CSV file to populate the database
+              </p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
-            {/* Upload Button */}
+      {/* Main Upload Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="max-w-4xl mx-auto"
+      >
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
+          {/* Drop Zone */}
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={`relative border-2 border-dashed rounded-2xl p-12 transition-all duration-300 ${
+              dragActive
+                ? "border-cyan-500 bg-cyan-500/10"
+                : "border-slate-700 bg-slate-800/30"
+            } ${file ? "opacity-50" : ""}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={uploading}
+            />
+
+            <div className="text-center">
+              <motion.div
+                animate={{
+                  scale: dragActive ? 1.1 : 1,
+                  rotate: dragActive ? 5 : 0,
+                }}
+                className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl flex items-center justify-center"
+              >
+                <Upload
+                  className={`w-10 h-10 ${
+                    dragActive ? "text-cyan-400" : "text-slate-400"
+                  }`}
+                />
+              </motion.div>
+
+              <h3 className="text-xl text-slate-200 mb-2 font-light">
+                Drop your CSV file here
+              </h3>
+              <p className="text-slate-400 mb-6 text-sm">
+                or click the button below to browse
+              </p>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-slate-600 disabled:to-slate-700 text-white font-medium rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:shadow-none"
+              >
+                Browse Files
+              </button>
+
+              <p className="text-slate-500 text-xs mt-4">
+                Supported format: CSV (Max 100MB)
+              </p>
+            </div>
+          </div>
+
+          {/* Selected File Display */}
+          <AnimatePresence>
+            {file && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-6"
+              >
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-cyan-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-200 font-medium truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    {!uploading && (
+                      <button
+                        onClick={removeFile}
+                        className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4 text-slate-400" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Progress Bar */}
+                  {uploading && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-slate-400">
+                          Uploading...
+                        </span>
+                        <span className="text-xs text-cyan-400 font-medium">
+                          {uploadProgress}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                        <motion.div
+                          className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full"
+                          animate={{ width: `${uploadProgress}%` }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Status Messages */}
+          <AnimatePresence>
+            {uploadStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-6"
+              >
+                {uploadStatus === "success" && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/50 rounded-xl p-4 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-emerald-300 font-medium mb-1">
+                        Upload Successful!
+                      </h4>
+                      <p className="text-emerald-200/70 text-sm">
+                        {uploadMessage}
+                      </p>
+                      <p className="text-emerald-200/50 text-xs mt-2">
+                        Redirecting to dashboard...
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {uploadStatus === "error" && (
+                  <div className="bg-rose-500/10 border border-rose-500/50 rounded-xl p-4 flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-rose-300 font-medium mb-1">
+                        Upload Failed
+                      </h4>
+                      <p className="text-rose-200/70 text-sm">
+                        {uploadMessage}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Upload Button */}
+          <div className="mt-8 flex gap-3">
             <button
-              onClick={uploadCSV}
-              disabled={!file || uploading}
-              className="w-full py-4 px-6 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:from-cyan-600 hover:to-blue-700 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-cyan-500/50 flex items-center justify-center gap-2"
+              onClick={handleUpload}
+              disabled={!file || uploading || uploadStatus === "success"}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:from-slate-700 disabled:to-slate-800 text-white font-medium rounded-xl transition-all shadow-lg shadow-emerald-500/20 disabled:shadow-none flex items-center justify-center gap-2"
             >
               {uploading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing...
+                  Uploading...
+                </>
+              ) : uploadStatus === "success" ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  Uploaded
                 </>
               ) : (
                 <>
-                  <FileText className="w-5 h-5" />
+                  <Upload className="w-5 h-5" />
                   Upload to Database
                 </>
               )}
             </button>
-
-            {/* Results */}
-            {result && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 p-6 bg-green-500/10 border border-green-500/30 rounded-xl"
-              >
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-green-300 mb-2">
-                      Upload Successful!
-                    </h3>
-                    <div className="text-sm text-slate-300 space-y-1">
-                      <p>Records inserted: <span className="font-bold text-green-400">{result.inserted}</span></p>
-                      <p>Total processed: <span className="font-bold">{result.total}</span></p>
-                      {result.skipped > 0 && (
-                        <p className="text-yellow-400">Skipped: {result.skipped}</p>
-                      )}
-                      {result.errors && result.errors.length > 0 && (
-                        <div className="mt-2 text-xs text-yellow-400">
-                          <p className="font-semibold">Sample errors:</p>
-                          {result.errors.map((err, i) => (
-                            <p key={i}>• {err}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Error */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 p-6 bg-red-500/10 border border-red-500/30 rounded-xl"
-              >
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="text-lg font-semibold text-red-300 mb-1">Upload Failed</h3>
-                    <p className="text-sm text-slate-300">{error}</p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Navigation */}
-            {result && (
-              <div className="mt-6 text-center">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
-                >
-                  View Dashboard →
-                </Link>
-              </div>
-            )}
           </div>
-        </motion.div>
 
-        {/* CSV Format Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="max-w-4xl mx-auto mt-12"
-        >
-          <div className="bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          {/* Info Section */}
+          <div className="mt-8 pt-6 border-t border-slate-800">
             <div className="flex items-start gap-3">
-              <Info className="w-6 h-6 text-cyan-400 flex-shrink-0 mt-1" />
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-slate-200 mb-3">Expected CSV Format (MARMUL Time-Based Data)</h3>
-                <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
-                  <div>
-                    <p className="font-semibold text-slate-300 mb-2">Required Columns:</p>
-                    <ul className="space-y-1 text-xs">
-                      <li>• <span className="text-cyan-400">DATE</span> - YYYY-MM-DDThh:mm:ss format</li>
-                      <li>• <span className="text-cyan-400">MD_ACTC</span> - Activity Code</li>
-                      <li>• <span className="text-cyan-400">MD_BPOS</span> - Block Position</li>
-                      <li>• <span className="text-cyan-400">MD_DMEA</span> - Depth Measured</li>
-                      <li>• <span className="text-cyan-400">MD_ROP</span> - Rate of Penetration</li>
-                      <li>• <span className="text-cyan-400">MD_SWOB</span> - Surface Weight on Bit</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-300 mb-2">Additional Columns:</p>
-                    <ul className="space-y-1 text-xs">
-                      <li>• <span className="text-cyan-400">MD_TDRPM</span> - Top Drive RPM</li>
-                      <li>• <span className="text-cyan-400">MD_TDTQA</span> - Top Drive Torque</li>
-                      <li>• <span className="text-cyan-400">MD_SPPA</span> - Standpipe Pressure</li>
-                      <li>• <span className="text-cyan-400">MD_MFIA</span> - Mud Flow In</li>
-                      <li>• <span className="text-cyan-400">MD_MSE</span> - Mechanical Specific Energy</li>
-                      <li>• Plus 15+ other drilling parameters</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="mt-4 p-3 bg-slate-900/50 rounded text-xs">
-                  <p className="text-slate-400">
-                    <span className="text-yellow-400 font-semibold">Note:</span> Empty values or <code className="text-cyan-400">-9999</code> will be stored as NULL. 
-                    File headers should start from line with "DATE" column.
-                  </p>
-                </div>
+              <AlertCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-slate-300 font-medium mb-2">
+                  CSV Format Requirements
+                </h4>
+                <ul className="text-slate-400 text-sm space-y-1">
+                  <li>
+                    • Required columns: YYYY/MM/DD, HH:MM:SS, Hole Depth, Bit
+                    Depth, ROP, WOB, etc.
+                  </li>
+                  <li>• Date format: M/D/YYYY (e.g., 8/2/2021)</li>
+                  <li>• Time format: H:MM:SS (e.g., 4:30:00)</li>
+                  <li>• All numeric values should be decimal numbers</li>
+                  <li>• File will be validated before upload</li>
+                </ul>
               </div>
             </div>
           </div>
-        </motion.div>
-
-        {/* Info Cards */}
-        <div className="max-w-4xl mx-auto mt-8 grid md:grid-cols-3 gap-6">
-          {[
-            { icon: FileText, title: 'CSV Format', text: 'MARMUL time-based drilling data' },
-            { icon: Database, title: 'Neon DB', text: 'Serverless PostgreSQL storage' },
-            { icon: CheckCircle, title: 'Auto-Process', text: 'Automatic data validation' },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + i * 0.1 }}
-              className="bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl p-6 text-center"
-            >
-              <item.icon className="w-8 h-8 text-cyan-400 mx-auto mb-3" />
-              <h3 className="font-semibold text-slate-200 mb-2">{item.title}</h3>
-              <p className="text-sm text-slate-400">{item.text}</p>
-            </motion.div>
-          ))}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
