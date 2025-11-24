@@ -1,65 +1,102 @@
-import Image from "next/image";
+import React from "react";
+import { Layers, Play, BarChart3, Activity, ArrowRight } from "lucide-react";
 
-export default function Home() {
+export default function HeroPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white overflow-hidden">
+
+      {/* Background Glow */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/3 right-1/4 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
+      </div>
+
+      {/* Nav */}
+      <nav className="relative z-10 container mx-auto px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center">
+            <Activity className="w-6 h-6" />
+          </div>
+          <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            FORGE Viewer
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        <a
+          href="/dashboard"
+          className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm border border-white/10 transition-all"
+        >
+          Open Dashboard
+        </a>
+      </nav>
+
+      {/* Hero */}
+      <main className="relative z-10 container mx-auto px-6 pt-20 pb-32">
+        
+        {/* Header */}
+        <h1 className="text-5xl md:text-7xl font-bold text-center leading-tight mb-6">
+          <span className="bg-gradient-to-r from-white via-blue-100 to-cyan-300 bg-clip-text text-transparent">
+            Real-Time Drilling Data
+          </span>
+          <br />
+          <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            Visualization Dashboard
+          </span>
+        </h1>
+
+        {/* Subheading */}
+        <p className="text-lg text-gray-400 text-center max-w-2xl mx-auto mb-10">
+          View historical drilling data, filter by time range, and playback operations step-by-step for analysis and understanding.
+        </p>
+
+        {/* CTA */}
+        <div className="flex justify-center mb-20">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/dashboard"
+            className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:scale-105 rounded-full text-lg font-semibold transition-all flex items-center gap-2"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            Launch Viewer
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        </div>
+
+        {/* Features */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            {
+              icon: <Layers className="w-6 h-6" />,
+              title: "Data Filtering",
+              desc: "Filter data by date and time with second-level precision."
+            },
+            {
+              icon: <BarChart3 className="w-6 h-6" />,
+              title: "Analytics",
+              desc: "Visualize key drilling parameters like Depth, RPM, Torque, WOB, ROP and more."
+            },
+            {
+              icon: <Play className="w-6 h-6" />,
+              title: "Playback Controls",
+              desc: "Play, pause, skip, and adjust playback speed for simulation mode."
+            }
+          ].map((f, i) => (
+            <div
+              key={i}
+              className="p-6 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all"
+            >
+              <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 mb-4">
+                {f.icon}
+              </div>
+              <h3 className="text-xl font-semibold mb-2">{f.title}</h3>
+              <p className="text-gray-400 text-sm">{f.desc}</p>
+            </div>
+          ))}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 text-center text-gray-500 py-6 text-sm border-t border-white/10">
+        © {new Date().getFullYear()} FORGE Viewer — Experimental Use Only
+      </footer>
     </div>
   );
 }
