@@ -629,7 +629,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT SIDE - CHARTS */}
-        <div className="xl:col-span-10 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-4 auto-rows-[180px]">
+        <div className="xl:col-span-10 grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-4 auto-rows-[300px]">
           <ChartPanel title="ROP" unit="ft/hr" color="#10b981">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
